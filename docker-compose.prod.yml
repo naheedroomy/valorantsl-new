@@ -56,8 +56,6 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_API_URL=https://api.valorantsl.com
-        - REACT_APP_DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
-        - REACT_APP_DISCORD_REDIRECT_URI=https://valorantsl.com/register
     container_name: valorantsl-frontend
     restart: unless-stopped
     expose:
