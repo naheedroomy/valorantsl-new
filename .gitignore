@@ -263,6 +263,8 @@ site/
 *.dmg
 
 frontend/README.md
+frontend/frontend_readme.md
 backend/README.md
+backend/backend_readme.md
 updater/README.md
 discord-bot/README.md
