@@ -1,0 +1,23 @@
+# Updater Service Dependencies
+
+# MongoDB async driver
+motor==3.6.0
+
+# HTTP client for Riot API calls
+httpx==0.27.2
+
+# Configuration management
+python-dotenv==1.1.1
+
+# Data validation and models
+pydantic==2.10.4
+pydantic-settings==2.6.1
+
+# Task scheduling
+schedule==1.2.2
+
+# Async support
+asyncio
+
+# Logging and utilities
+python-json-logger==2.0.7
