@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: valorantsl-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"  # Cloudflare will handle HTTPS
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - valorantsl-network
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: valorantsl-backend
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    expose:
+      - "8000"  # Only exposed to internal network
+    networks:
+      - valorantsl-network
+    healthcheck:
+      test: curl -f http://localhost:8000/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=https://api.valorantsl.com
+        - REACT_APP_DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+        - REACT_APP_DISCORD_REDIRECT_URI=https://valorantsl.com/register
+    container_name: valorantsl-frontend
+    restart: unless-stopped
+    expose:
+      - "80"  # Only exposed to internal network
+    networks:
+      - valorantsl-network
+    healthcheck:
+      test: curl -f http://localhost:80 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Player Data Updater Service
+  updater:
+    build:
+      context: ./updater
+      dockerfile: Dockerfile
+    container_name: valorantsl-updater
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    networks:
+      - valorantsl-network
+    healthcheck:
+      test: python -c "import os; print('Updater is running')" || exit 1
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Discord Bot Service
+  discord-bot:
+    build:
+      context: ./discord-bot
+      dockerfile: Dockerfile
+    container_name: valorantsl-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    networks:
+      - valorantsl-network
+    healthcheck:
+      test: python -c "import sys; sys.exit(0)" || exit 1
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  valorantsl-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
