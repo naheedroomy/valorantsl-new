@@ -47,16 +47,16 @@ case $OPERATION in
         print_status "Building and starting services..."
         
         if [ "$SERVICES" == "all" ]; then
-            docker-compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build
         else
-            docker-compose -f docker-compose.prod.yml up -d --build $SERVICES
+            docker compose -f docker-compose.prod.yml up -d --build $SERVICES
         fi
         
         print_status "Waiting for services to be healthy..."
         sleep 10
         
         # Check service health
-        docker-compose -f docker-compose.prod.yml ps
+        docker compose -f docker-compose.prod.yml ps
         
         print_status "Deployment completed successfully!"
         print_status "Frontend: https://valorantsl.com"
@@ -65,31 +65,31 @@ case $OPERATION in
         
     stop)
         print_status "Stopping services..."
-        docker-compose -f docker-compose.prod.yml stop
+        docker compose -f docker-compose.prod.yml stop
         print_status "Services stopped."
         ;;
         
     restart)
         print_status "Restarting services..."
         if [ "$SERVICES" == "all" ]; then
-            docker-compose -f docker-compose.prod.yml restart
+            docker compose -f docker-compose.prod.yml restart
         else
-            docker-compose -f docker-compose.prod.yml restart $SERVICES
+            docker compose -f docker-compose.prod.yml restart $SERVICES
         fi
         print_status "Services restarted."
         ;;
         
     logs)
         if [ "$SERVICES" == "all" ]; then
-            docker-compose -f docker-compose.prod.yml logs -f --tail=100
+            docker compose -f docker-compose.prod.yml logs -f --tail=100
         else
-            docker-compose -f docker-compose.prod.yml logs -f --tail=100 $SERVICES
+            docker compose -f docker-compose.prod.yml logs -f --tail=100 $SERVICES
         fi
         ;;
         
     status)
         print_status "Service Status:"
-        docker-compose -f docker-compose.prod.yml ps
+        docker compose -f docker-compose.prod.yml ps
         echo ""
         print_status "Resource Usage:"
         docker stats --no-stream
@@ -101,9 +101,9 @@ case $OPERATION in
         
         print_status "Rebuilding and redeploying services..."
         if [ "$SERVICES" == "all" ]; then
-            docker-compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build
         else
-            docker-compose -f docker-compose.prod.yml up -d --build $SERVICES
+            docker compose -f docker-compose.prod.yml up -d --build $SERVICES
         fi
         
         print_status "Cleaning up old images..."
@@ -121,7 +121,7 @@ case $OPERATION in
         cp .env.production $BACKUP_DIR/
         
         # Backup Docker volumes (if any)
-        docker-compose -f docker-compose.prod.yml exec -T updater tar czf - /app/logs 2>/dev/null > $BACKUP_DIR/updater_logs.tar.gz || true
+        docker compose -f docker-compose.prod.yml exec -T updater tar czf - /app/logs 2>/dev/null > $BACKUP_DIR/updater_logs.tar.gz || true
         
         print_status "Backup created in $BACKUP_DIR"
         ;;
