@@ -9,16 +9,19 @@ ARG REACT_APP_API_URL=http://localhost:8000
 # Set environment variables for the build
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
+# Increase Node.js memory limit for build process
+ENV NODE_OPTIONS="--max_old_space_size=4096"
+
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies (including dev dependencies needed for build)
-RUN npm ci
+RUN npm ci --only=production=false --silent
 
 # Copy source code
 COPY . .
 
-# Build the app with the environment variables
+# Build the app with the environment variables and memory optimization
 RUN npm run build
 
 # Production stage

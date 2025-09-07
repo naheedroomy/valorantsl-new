@@ -36,8 +36,9 @@ jobs:
           # Remove old images for this project specifically
           docker images --format "table {{.Repository}}:{{.Tag}}" | grep "valorantsl-new" | awk '{print $1}' | xargs -r docker rmi -f || true
           
-          echo "🚀 Building all services with no cache (keeping old containers running)..."
-          docker compose -f docker-compose.prod.yml build --no-cache
+          echo "🚀 Building all services with memory optimization..."
+          # Set Docker build memory limits and use cache when possible
+          DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --memory=4g --memory-swap=8g
           
           echo "⚡ Quick swap: stopping old containers and starting new ones..."
           docker compose -f docker-compose.prod.yml down --remove-orphans
