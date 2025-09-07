@@ -1,6 +1,6 @@
-name: Build and Deploy (Alternative)
-# This workflow builds images in GitHub Actions (with better memory management) 
-# and deploys them to your server - use this if the current deployment still fails
+name: ValorantSL Auto Deployment
+# Builds images in GitHub Actions with optimized memory management
+# and deploys pre-built images to production server
 
 on:
   push:
@@ -69,16 +69,19 @@ jobs:
         SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         SSH_USER: ${{ secrets.SSH_USER }}
         SSH_HOST: ${{ secrets.SSH_HOST }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
+        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << EOF
           set -e
           
           echo "🔑 Logging into GitHub Container Registry..."
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           
           echo "📥 Pulling latest images..."
-          docker pull ghcr.io/${{ github.repository }}/frontend:latest
-          docker pull ghcr.io/${{ github.repository }}/backend:latest
+          docker pull ghcr.io/\$GITHUB_REPOSITORY/frontend:latest
+          docker pull ghcr.io/\$GITHUB_REPOSITORY/backend:latest
           
           cd ~/valorantsl-new
           
@@ -89,4 +92,4 @@ jobs:
           docker compose -f docker-compose.prod.yml up -d
           
           echo "✅ Deployment completed"
-        EOF
+EOF
