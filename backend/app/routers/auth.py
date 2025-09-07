@@ -1,6 +1,6 @@
 """Discord OAuth authentication router"""
 from typing import Optional, Dict, Any, Set
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, Body
 from fastapi.responses import JSONResponse
 from fastapi_discord import DiscordOAuthClient, User, Unauthorized, RateLimited
 from fastapi_discord.exceptions import ClientSessionNotInitialized
@@ -93,7 +93,7 @@ async def discord_callback(code: str = Query(...)):
 
 
 @router.post("/check-discord")
-async def check_discord_exists(discord_id: int):
+async def check_discord_exists(discord_id: int = Body(..., embed=True)):
     """Check if a Discord user already exists in the database"""
     try:
         user = await db_service.get_user_by_discord_id(discord_id)
@@ -118,13 +118,20 @@ async def check_discord_exists(discord_id: int):
 
 
 @router.post("/check-puuid")
-async def check_puuid_exists(puuid: str):
+async def check_puuid_exists(puuid: str = Body(..., embed=True)):
     """Check if a PUUID already exists in the database"""
     try:
+        logger.info(f"Checking PUUID existence: {puuid}")
+        
+        if not puuid:
+            logger.error("Empty PUUID received")
+            raise HTTPException(status_code=400, detail="PUUID is required")
+        
         exists = await db_service.user_exists(puuid)
         
         if exists:
             user = await db_service.get_user_by_puuid(puuid)
+            logger.info(f"PUUID {puuid} already exists for user {user.name}#{user.tag}" if user else f"PUUID {puuid} exists but user data not found")
             return {
                 "exists": True,
                 "user": {
@@ -134,8 +141,11 @@ async def check_puuid_exists(puuid: str):
                 } if user else None
             }
         
+        logger.info(f"PUUID {puuid} does not exist in database")
         return {"exists": False}
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error checking PUUID: {e}")
-        raise HTTPException(status_code=500, detail="Failed to check PUUID")
+        logger.error(f"Error checking PUUID {puuid}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to check PUUID: {str(e)}")

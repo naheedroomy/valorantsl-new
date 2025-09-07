@@ -1,0 +1,183 @@
+name: ValorantSL Auto Deployment
+
+on:
+  schedule:
+    # Runs every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allow manual trigger
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  check-and-deploy:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    
+    steps:
+    - name: Check if runner has Docker
+      run: |
+        docker --version
+        docker compose --version
+    
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2 # Fetch last 2 commits to compare
+    
+    - name: Check for changes since last run
+      id: check_changes
+      run: |
+        # Get the current commit hash
+        CURRENT_COMMIT=$(git rev-parse HEAD)
+        echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+        
+        # Check if there are changes by comparing with previous commit
+        if git diff --quiet HEAD~1 HEAD; then
+          echo "No changes detected since last commit"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "Changes detected since last commit"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          
+          # Log what changed
+          echo "Files changed:"
+          git diff --name-only HEAD~1 HEAD | head -20
+        fi
+    
+    - name: Check production environment file
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      run: |
+        # Check if .env.production exists on the server
+        if [ -f ".env.production" ]; then
+          echo "✅ Production environment file found"
+          echo "📋 Environment file summary:"
+          echo "File size: $(du -h .env.production | cut -f1)"
+          echo "Last modified: $(stat -c %y .env.production)"
+        else
+          echo "❌ .env.production file not found!"
+          echo "Please ensure .env.production exists on the production server"
+          exit 1
+        fi
+    
+    - name: Stop existing containers
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      continue-on-error: true
+      run: |
+        echo "🛑 Stopping existing containers..."
+        docker compose -f docker-compose.prod.yml down --remove-orphans
+        echo "✅ Containers stopped"
+    
+    - name: Clean up Docker resources
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      continue-on-error: true
+      run: |
+        echo "🧹 Cleaning up Docker resources..."
+        
+        # Remove old images for the project
+        docker images --format "table {{.Repository}}:{{.Tag}}" | grep "valorantsl-new" | awk '{print $1}' | xargs -r docker rmi -f
+        
+        # Clean up build cache and unused images
+        docker builder prune -f
+        docker image prune -f
+        
+        echo "✅ Docker cleanup completed"
+    
+    - name: Build and deploy services
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      run: |
+        echo "🚀 Building and deploying services..."
+        
+        # Build all services with no cache
+        docker compose -f docker-compose.prod.yml build --no-cache
+        
+        # Start services
+        docker compose -f docker-compose.prod.yml up -d
+        
+        echo "✅ Services deployed successfully"
+    
+    - name: Wait for services to be ready
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      run: |
+        echo "⏳ Waiting for services to be ready..."
+        
+        # Wait for services to start
+        sleep 30
+        
+        # Check service health
+        echo "📊 Service status:"
+        docker compose -f docker-compose.prod.yml ps
+        
+        # Test if services are responding
+        max_attempts=10
+        attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+          echo "🏥 Health check attempt $attempt/$max_attempts"
+          
+          # Check if nginx is responding
+          if curl -f -s http://localhost:80/health > /dev/null 2>&1; then
+            echo "✅ Frontend is responding"
+            break
+          else
+            echo "⚠️ Frontend not ready yet, waiting..."
+            sleep 10
+            attempt=$((attempt + 1))
+          fi
+        done
+        
+        if [ $attempt -gt $max_attempts ]; then
+          echo "❌ Services failed to become ready after $max_attempts attempts"
+          docker compose -f docker-compose.prod.yml logs --tail=50
+          exit 1
+        fi
+        
+        echo "🎉 All services are ready and responding!"
+    
+    - name: Verify deployment
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_rebuild == 'true'
+      run: |
+        echo "🔍 Verifying deployment..."
+        
+        # Check container status
+        docker compose -f docker-compose.prod.yml ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}"
+        
+        # Check resource usage
+        echo ""
+        echo "📈 Resource usage:"
+        docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+        
+        echo ""
+        echo "🌐 Services should be available at:"
+        echo "  - Frontend: https://valorantsl.com"
+        echo "  - API: https://api.valorantsl.com"
+        
+        echo "✅ Deployment verification completed"
+    
+    - name: Final cleanup
+      if: always()
+      run: |
+        # Clean up any temporary build files
+        docker builder prune -f > /dev/null 2>&1 || true
+        echo "🧹 Build cleanup completed"
+    
+    - name: Deployment summary
+      if: always()
+      run: |
+        if [[ "${{ steps.check_changes.outputs.has_changes }}" == "true" || "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
+          echo "📋 DEPLOYMENT SUMMARY"
+          echo "Commit: ${{ steps.check_changes.outputs.current_commit }}"
+          echo "Status: Deployment completed"
+          echo "Services: All ValorantSL services updated and running"
+        else
+          echo "📋 NO DEPLOYMENT NEEDED"
+          echo "Commit: ${{ steps.check_changes.outputs.current_commit }}"
+          echo "Status: No changes detected, skipping deployment"
+        fi

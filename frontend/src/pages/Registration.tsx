@@ -164,7 +164,7 @@ const Registration: React.FC = () => {
       const data = await response.json();
       
       if (data.exists) {
-        setError(`Discord account already registered as ${data.existing_data.name}#${data.existing_data.tag}`);
+        setError(`This Discord account is already registered as ${data.existing_data.name}#${data.existing_data.tag}. Each Discord account can only be linked to one Valorant account. If you need to update your PUUID or have issues with your registration, please contact an administrator.`);
         // Clear the URL params on error
         window.history.replaceState({}, document.title, '/register');
         setLoading(false);
@@ -212,7 +212,7 @@ const Registration: React.FC = () => {
       const checkData = await checkResponse.json();
       
       if (checkData.exists) {
-        setError(`PUUID already registered to ${checkData.user.name}#${checkData.user.tag}`);
+        setError(`This PUUID is already registered to ${checkData.user.name}#${checkData.user.tag}. Each player can only register once. If this is your account and you need to update your Discord connection, please contact an administrator.`);
         setLoading(false);
         return;
       }
@@ -267,7 +267,30 @@ const Registration: React.FC = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.detail || 'Registration failed');
+        
+        // Handle specific error cases with user-friendly messages
+        let errorMessage = 'Registration failed';
+        
+        if (response.status === 409) {
+          // Conflict - Discord user already registered
+          if (errorData.message && errorData.message.includes('Discord user already registered')) {
+            errorMessage = `This Discord account is already registered in the system. Each Discord account can only be linked to one PUUID. If you need to update your PUUID, please contact an administrator.`;
+          } else if (errorData.message && errorData.message.includes('already registered')) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = 'This account or PUUID is already registered.';
+          }
+        } else if (response.status === 404) {
+          errorMessage = 'Player not found. Please verify your PUUID is correct.';
+        } else if (response.status === 400) {
+          errorMessage = errorData.detail || errorData.message || 'Invalid registration data. Please check your information.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error occurred. Please try again later or contact support if the issue persists.';
+        } else {
+          errorMessage = errorData.detail || errorData.message || 'Registration failed. Please try again.';
+        }
+        
+        setError(errorMessage);
         setLoading(false);
         return;
       }
@@ -365,8 +388,21 @@ const Registration: React.FC = () => {
         </Stepper>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 3,
+              '& .MuiAlert-message': {
+                fontSize: '1rem',
+                lineHeight: 1.6
+              }
+            }} 
+            onClose={() => setError(null)}
+            icon={<ErrorIcon fontSize="large" />}
+          >
+            <Typography variant="body1" component="div">
+              {error}
+            </Typography>
           </Alert>
         )}
 

@@ -11,11 +11,34 @@ const apiClient = axios.create({
   },
 });
 
-// Add response interceptor for error handling
+// Add response interceptor for error handling with retry logic
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    console.error('API Error:', error);
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Log detailed error information
+    console.error('API Error:', {
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      data: originalRequest?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+      message: error.message
+    });
+    
+    // Don't retry if we've already retried once
+    if (originalRequest && !originalRequest._retry && error.response?.status !== 401) {
+      originalRequest._retry = true;
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Retrying request:', originalRequest.url);
+      return apiClient(originalRequest);
+    }
+    
     throw error;
   }
 );
