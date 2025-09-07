@@ -14,10 +14,11 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
+  Collapse,
 } from '@mui/material';
-import { OpenInNew, EmojiEvents } from '@mui/icons-material';
+import { OpenInNew, EmojiEvents, KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { LeaderboardEntry, LeaderboardResponse } from '../types/leaderboard';
+import { LeaderboardEntry, LeaderboardResponse, PeakRank } from '../types/leaderboard';
 import { leaderboardApi } from '../services/api';
 import { getRankColor } from '../theme/darkTheme';
 
@@ -88,6 +89,7 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ perPage = 50 }) => 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const fetchLeaderboard = useCallback(async (page: number) => {
     try {
@@ -109,6 +111,7 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ perPage = 50 }) => 
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
+    setExpandedRows(new Set()); // Clear expanded rows when changing pages
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -121,6 +124,80 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ perPage = 50 }) => 
     if (rank === 2) return <EmojiEvents sx={{ color: '#C0C0C0', fontSize: '1.2rem' }} />; // Silver  
     if (rank === 3) return <EmojiEvents sx={{ color: '#CD7F32', fontSize: '1.2rem' }} />; // Bronze
     return null;
+  };
+
+  const toggleRowExpansion = (puuid: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(puuid)) {
+      newExpanded.delete(puuid);
+    } else {
+      newExpanded.add(puuid);
+    }
+    setExpandedRows(newExpanded);
+  };
+
+  const formatSeasonName = (seasonShort: string | null | undefined): string => {
+    // Convert season_short like "e10a2" to "E10A2"
+    if (!seasonShort) return 'N/A';
+    return seasonShort.toUpperCase();
+  };
+
+  const renderPeakRankDetails = (entry: LeaderboardEntry) => {
+    if (!entry.peak_rank) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          Peak rank information not available
+        </Typography>
+      );
+    }
+
+    // Handle both legacy format (string) and new format (object)
+    const isLegacyFormat = typeof entry.peak_rank === 'string';
+    
+    if (isLegacyFormat) {
+      // Legacy format: peak_rank is a string, peak_season is separate
+      const peakRankTier = entry.peak_rank as string;
+      const peakSeason = entry.peak_season;
+      
+      return (
+        <Box>
+          <Typography variant="body1" fontWeight={600} sx={{ mb: 1 }}>
+            Peak Rank Details
+          </Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            <RankChip 
+              label={peakRankTier} 
+              rank={peakRankTier}
+              size="small"
+            />
+            <Typography variant="body2" color="text.secondary">
+              Season: {formatSeasonName(peakSeason)}
+            </Typography>
+          </Box>
+        </Box>
+      );
+    } else {
+      // New format: peak_rank is an object with tier_name, season_short, rr
+      const peakRank = entry.peak_rank as PeakRank;
+      
+      return (
+        <Box>
+          <Typography variant="body1" fontWeight={600} sx={{ mb: 1 }}>
+            Peak Rank Details
+          </Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            <RankChip 
+              label={peakRank.tier_name} 
+              rank={peakRank.tier_name}
+              size="small"
+            />
+            <Typography variant="body2" color="text.secondary">
+              Season: {formatSeasonName(peakRank.season_short)}
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
   };
 
   if (error) {
@@ -174,68 +251,81 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ perPage = 50 }) => 
               data.entries.map((entry: LeaderboardEntry, index: number) => {
                 const trackerUrl = `https://tracker.gg/valorant/profile/riot/${encodeURIComponent(entry.name)}%23${encodeURIComponent(entry.tag)}/overview`;
                 const globalRank = calculateGlobalRank(currentPage, index);
+                const isExpanded = expandedRows.has(entry.puuid);
                 
                 return (
-                  <TableRow key={entry.puuid} hover>
-                    <RankCell align="center">
-                      <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
-                        {getRankIcon(globalRank)}
-                        <Typography variant="h6" fontWeight={600} color="primary.main">
-                          #{globalRank}
-                        </Typography>
-                      </Box>
-                    </RankCell>
-                    <TableCell>
-                      <Box>
-                        <Box display="flex" alignItems="baseline" gap={0.5}>
-                          <Typography variant="body1" fontWeight={600}>
-                            {entry.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            #{entry.tag}
+                  <React.Fragment key={entry.puuid}>
+                    <TableRow hover sx={{ cursor: 'pointer' }} onClick={() => toggleRowExpansion(entry.puuid)}>
+                      <RankCell align="center">
+                        <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+                          {getRankIcon(globalRank)}
+                          <Typography variant="h6" fontWeight={600} color="primary.main">
+                            #{globalRank}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                          @{entry.discord_username}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <RankChip 
-                        label={entry.current_tier || 'Unranked'} 
-                        rank={entry.current_tier || 'Unranked'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <EloCell align="center">
-                      {entry.elo.toLocaleString()}
-                    </EloCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        {formatLastPlayed(entry.last_played_match)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="View on Tracker.gg" arrow>
-                        <IconButton
-                          component="a"
-                          href={trackerUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      </RankCell>
+                      <TableCell>
+                        <Box>
+                          <Box display="flex" alignItems="baseline" gap={0.5}>
+                            <Typography variant="body1" fontWeight={600}>
+                              {entry.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              #{entry.tag}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            @{entry.discord_username}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <RankChip 
+                          label={entry.current_tier || 'Unranked'} 
+                          rank={entry.current_tier || 'Unranked'}
                           size="small"
-                          sx={{ 
-                            color: 'primary.main',
-                            '&:hover': { 
-                              color: 'primary.light',
-                              backgroundColor: 'rgba(255, 70, 85, 0.1)'
-                            }
-                          }}
-                        >
-                          <OpenInNew fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
+                        />
+                      </TableCell>
+                      <EloCell align="center">
+                        {entry.elo.toLocaleString()}
+                      </EloCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          {formatLastPlayed(entry.last_played_match)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="View on Tracker.gg" arrow>
+                          <IconButton
+                            component="a"
+                            href={trackerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="small"
+                            onClick={(e) => e.stopPropagation()} // Prevent row expansion when clicking tracker link
+                            sx={{ 
+                              color: 'primary.main',
+                              '&:hover': { 
+                                color: 'primary.light',
+                                backgroundColor: 'rgba(255, 70, 85, 0.1)'
+                              }
+                            }}
+                          >
+                            <OpenInNew fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={6} sx={{ padding: 0, borderBottom: isExpanded ? 1 : 0 }}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ padding: 3, backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
+                            {renderPeakRankDetails(entry)}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
                 );
               })
             ) : (

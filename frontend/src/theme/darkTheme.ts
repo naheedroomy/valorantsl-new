@@ -209,7 +209,9 @@ const themeOptions: ThemeOptions = {
 export const darkTheme = createTheme(themeOptions);
 
 // Helper function to get rank color
-export const getRankColor = (rank: string): string => {
+export const getRankColor = (rank: string | null | undefined): string => {
+  if (!rank) return valorantColors.text.secondary; // Handle null/undefined
+  
   const rankLower = rank.toLowerCase();
   
   if (rankLower.includes('iron')) return valorantColors.ranks.iron;

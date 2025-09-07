@@ -1,3 +1,9 @@
+export interface PeakRank {
+  season_short: string;
+  tier_name: string;
+  rr: number;
+}
+
 export interface LeaderboardEntry {
   puuid: string;
   name: string;
@@ -6,7 +12,8 @@ export interface LeaderboardEntry {
   current_tier: string | null;
   elo: number;  // Always present now since we filter null values
   rank_in_tier?: number | null;
-  peak_rank?: string | null;
+  // Handle both legacy format (string) and new format (object)
+  peak_rank?: string | PeakRank | null;
   peak_season?: string | null;
   last_played_match?: string | null;
 }
