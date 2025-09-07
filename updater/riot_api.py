@@ -172,6 +172,9 @@ class RiotAPIClient:
                 # Peak rank information
                 "peak_rank": self._get_peak_rank_info(mmr_data),
                 
+                # Seasonal ranks information
+                "seasonal_ranks": self._get_seasonal_ranks_info(mmr_data),
+                
                 # Last played match date
                 "last_played_match": last_played_date,
                 
@@ -229,6 +232,58 @@ class RiotAPIClient:
             "season_short": season_info.get("short", "Unknown"),
             "tier": tier_info.get("id", 0)
         }
+    
+    def _get_seasonal_ranks_info(self, mmr_data: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract seasonal rank information from MMR data"""
+        if not mmr_data or "data" not in mmr_data:
+            return []
+        
+        data = mmr_data["data"]
+        seasonal_data = data.get("seasonal", [])
+        
+        if not seasonal_data:
+            return []
+        
+        processed_seasonal = []
+        
+        for season in seasonal_data:
+            season_info = season.get("season", {})
+            end_tier_info = season.get("end_tier", {})
+            
+            # Process the seasonal data into our desired format
+            season_record = {
+                "season_short": season_info.get("short", "Unknown"),
+                "season_id": season_info.get("id", ""),
+                "wins": season.get("wins", 0),
+                "games": season.get("games", 0),
+                "end_tier": {
+                    "id": end_tier_info.get("id", 0),
+                    "name": end_tier_info.get("name", "Unknown")
+                },
+                "end_rr": season.get("end_rr", 0),
+                "ranking_schema": season.get("ranking_schema", "base"),
+                "leaderboard_placement": season.get("leaderboard_placement")
+            }
+            
+            # Add act wins if available (this is detailed win history)
+            act_wins = season.get("act_wins", [])
+            if act_wins:
+                # Count act wins by tier to get a summary
+                tier_counts = {}
+                for act_win in act_wins:
+                    tier_name = act_win.get("name", "Unknown")
+                    tier_counts[tier_name] = tier_counts.get(tier_name, 0) + 1
+                
+                season_record["act_wins_summary"] = tier_counts
+                season_record["total_act_wins"] = len(act_wins)
+            
+            processed_seasonal.append(season_record)
+        
+        # Sort by season (most recent first) - assuming season_short format like e10a2
+        processed_seasonal.sort(key=lambda x: x.get("season_short", ""), reverse=True)
+        
+        logger.debug(f"Processed {len(processed_seasonal)} seasonal records")
+        return processed_seasonal
     
     def _calculate_match_stats(self, matches_data: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
         """Calculate match statistics from recent games"""
