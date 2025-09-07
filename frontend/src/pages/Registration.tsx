@@ -18,7 +18,11 @@ import {
   List,
   ListItem,
   ListItemText,
-  Chip
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Link
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { 
@@ -27,7 +31,9 @@ import {
   PersonAdd as PersonAddIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  SportsEsports as SportsEsportsIcon
+  SportsEsports as SportsEsportsIcon,
+  Help as HelpIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -456,10 +462,80 @@ const Registration: React.FC = () => {
             <Typography variant="h5" gutterBottom>
               Enter Your Riot PUUID
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
               Your PUUID (Player Universally Unique Identifier) is required to fetch your Valorant stats.
-              You can find it on tracker.gg or other Valorant stats websites.
             </Typography>
+            
+            <Accordion sx={{ mb: 3, backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Box display="flex" alignItems="center">
+                  <HelpIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  <Typography variant="h6">How to Find Your PUUID</Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Follow these steps to find your PUUID:
+                </Typography>
+                
+                <Box component="ol" sx={{ pl: 2, '& li': { mb: 1 } }}>
+                  <li>
+                    <Typography variant="body2">
+                      Sign in at{' '}
+                      <Link 
+                        href="https://account.riotgames.com/account" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        color="primary"
+                      >
+                        account.riotgames.com/account
+                      </Link>
+                    </Typography>
+                  </li>
+                  
+                  <li>
+                    <Typography variant="body2">
+                      After signing in, go to{' '}
+                      <Link 
+                        href="https://account.riotgames.com/api/account/v1/user" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        color="primary"
+                      >
+                        account.riotgames.com/api/account/v1/user
+                      </Link>
+                    </Typography>
+                  </li>
+                  
+                  <li>
+                    <Typography variant="body2">
+                      You will get a JSON response. Look for the <strong>"sub"</strong> field - that's your PUUID.
+                    </Typography>
+                  </li>
+                </Box>
+                
+                <Paper sx={{ p: 2, mt: 2, backgroundColor: 'rgba(0,0,0,0.3)', fontFamily: 'monospace' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Example response:
+                  </Typography>
+                  <Typography variant="body2" component="pre" sx={{ fontSize: '0.8rem', overflow: 'auto' }}>
+{`{
+  "sub": "a91c72de-849a-4c2b-9e83-b45a8b3fdfe1",
+  "email": "alex.rivera99@example.net",
+  "username": "CyberFalcon77",
+  "alias": {
+    "game_name": "NovaStrike",
+    "tag_line": "Z9X"
+  },
+  ...
+}`}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
+                    Your PUUID is the <strong>"sub"</strong> value: <code>a91c72de-849a-4c2b-9e83-b45a8b3fdfe1</code>
+                  </Typography>
+                </Paper>
+              </AccordionDetails>
+            </Accordion>
             
             <TextField
               fullWidth
