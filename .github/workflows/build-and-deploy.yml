@@ -1,0 +1,92 @@
+name: Build and Deploy (Alternative)
+# This workflow builds images in GitHub Actions (with better memory management) 
+# and deploys them to your server - use this if the current deployment still fails
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          network=host
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
+        build-args: |
+          REACT_APP_API_URL=https://api.valorantsl.com
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Install sshpass
+      run: sudo apt-get update && sudo apt-get install -y sshpass
+
+    - name: Deploy to production server
+      env:
+        SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+      run: |
+        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
+          set -e
+          
+          echo "🔑 Logging into GitHub Container Registry..."
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          echo "📥 Pulling latest images..."
+          docker pull ghcr.io/${{ github.repository }}/frontend:latest
+          docker pull ghcr.io/${{ github.repository }}/backend:latest
+          
+          cd ~/valorantsl-new
+          
+          echo "⚡ Stopping old services..."
+          docker compose -f docker-compose.prod.yml down --remove-orphans
+          
+          echo "🚀 Starting services with new images..."
+          docker compose -f docker-compose.prod.yml up -d
+          
+          echo "✅ Deployment completed"
+        EOF

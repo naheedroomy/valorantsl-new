@@ -38,7 +38,7 @@ jobs:
           
           echo "🚀 Building all services with memory optimization..."
           # Set Docker build memory limits and use cache when possible
-          DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --memory=4g --memory-swap=8g
+          DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --memory=4g
           
           echo "⚡ Quick swap: stopping old containers and starting new ones..."
           docker compose -f docker-compose.prod.yml down --remove-orphans
