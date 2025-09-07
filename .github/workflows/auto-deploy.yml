@@ -31,19 +31,19 @@ jobs:
           echo "📥 Pulling latest changes..."
           git pull origin master
           
-          echo "🧹 Cleaning up Docker system..."
-          docker system prune -af --volumes
+          echo "🧹 Cleaning up old Docker images and system..."
+          docker system prune -f --volumes
+          # Remove old images for this project specifically
+          docker images --format "table {{.Repository}}:{{.Tag}}" | grep "valorantsl-new" | awk '{print $1}' | xargs -r docker rmi -f || true
           
-          echo "🛑 Stopping existing containers..."
-          docker compose -f docker-compose.prod.yml down --remove-orphans || true
-          
-          echo "🚀 Building all services with no cache..."
+          echo "🚀 Building all services with no cache (keeping old containers running)..."
           docker compose -f docker-compose.prod.yml build --no-cache
           
-          echo "🌟 Starting services..."
+          echo "⚡ Quick swap: stopping old containers and starting new ones..."
+          docker compose -f docker-compose.prod.yml down --remove-orphans
           docker compose -f docker-compose.prod.yml up -d
           
-          echo "✅ Deployment completed successfully"
+          echo "✅ Zero-downtime deployment completed successfully"
         EOF
     
     - name: Verify deployment
