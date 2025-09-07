@@ -97,7 +97,7 @@ case $OPERATION in
         
     update)
         print_status "Pulling latest changes..."
-        git pull origin main
+        git pull origin master
         
         print_status "Rebuilding and redeploying services..."
         if [ "$SERVICES" == "all" ]; then
