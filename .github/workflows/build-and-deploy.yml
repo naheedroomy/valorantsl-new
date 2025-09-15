@@ -73,23 +73,23 @@ jobs:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
+        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << EOF
           set -e
-          
+
           echo "🔑 Logging into GitHub Container Registry..."
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          
+
           echo "📥 Pulling latest images..."
           docker pull ghcr.io/$GITHUB_REPOSITORY/frontend:latest
           docker pull ghcr.io/$GITHUB_REPOSITORY/backend:latest
-          
+
           cd ~/valorantsl-new
-          
+
           echo "⚡ Stopping old services..."
           docker compose -f docker-compose.prod.yml down --remove-orphans
-          
+
           echo "🚀 Starting services with new images..."
           docker compose -f docker-compose.prod.yml up -d
-          
+
           echo "✅ Deployment completed"
         EOF
