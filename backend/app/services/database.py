@@ -209,9 +209,39 @@ class DatabaseService:
         try:
             user_doc = await self.collection.find_one({"discord_id": discord_id})
             if user_doc:
-                # Remove MongoDB _id field and convert to UserInDB
+                # Remove MongoDB _id field
                 user_doc.pop("_id", None)
-                return UserInDB(**user_doc)
+                try:
+                    return UserInDB(**user_doc)
+                except Exception as validation_error:
+                    logger.warning(f"User {discord_id} exists in DB but failed UserInDB validation: {validation_error}")
+                    # Return a simplified object that indicates the user exists
+                    # This allows the auth flow to detect existing users even with incomplete data
+                    from types import SimpleNamespace
+                    simple_user = SimpleNamespace()
+                    simple_user.puuid = user_doc.get("puuid", "")
+                    simple_user.name = user_doc.get("name", "")
+                    simple_user.tag = user_doc.get("tag", "")
+                    simple_user.discord_id = user_doc.get("discord_id")
+                    simple_user.discord_username = user_doc.get("discord_username", "")
+
+                    # Handle different rank_details structures
+                    rank_details = user_doc.get("rank_details", {})
+                    if isinstance(rank_details, dict):
+                        if "data" in rank_details:
+                            # Legacy structure: rank_details.data.currenttierpatched
+                            current_rank = rank_details.get("data", {}).get("currenttierpatched")
+                        else:
+                            # New structure: rank_details.currenttierpatched
+                            current_rank = rank_details.get("currenttierpatched")
+                    else:
+                        current_rank = None
+
+                    simple_user.rank_details = SimpleNamespace()
+                    simple_user.rank_details.data = SimpleNamespace()
+                    simple_user.rank_details.data.currenttierpatched = current_rank
+
+                    return simple_user
             return None
         except Exception as e:
             logger.error(f"Failed to get user by Discord ID {discord_id}: {e}")
