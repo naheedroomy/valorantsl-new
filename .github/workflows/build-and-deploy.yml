@@ -46,7 +46,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Build and push backend image
+     - name: Build and push backend image
       uses: docker/build-push-action@v5
       with:
         context: ./backend
@@ -54,6 +54,25 @@ jobs:
         tags: ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+     - name: Build and push updater image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./updater
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ github.repository }}/updater:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+     - name: Build and push discord-bot image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./discord-bot
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ github.repository }}/discord-bot:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
 
   deploy:
     needs: build-and-push
@@ -82,6 +101,8 @@ jobs:
           echo "📥 Pulling latest images..."
           docker pull ghcr.io/$GITHUB_REPOSITORY/frontend:latest
           docker pull ghcr.io/$GITHUB_REPOSITORY/backend:latest
+          docker pull ghcr.io/$GITHUB_REPOSITORY/updater:latest
+          docker pull ghcr.io/$GITHUB_REPOSITORY/discord-bot:latest
 
           cd ~/valorantsl-new
 

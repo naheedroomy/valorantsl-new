@@ -260,3 +260,16 @@ async def submit_registration(request: RegistrationRequest):
     except Exception as e:
         logger.error(f"Registration failed: {e}")
         raise HTTPException(status_code=500, detail="Registration failed")
+
+# -------------------------------------------------------------
+# Alias routes for frontend compatibility (GET + simplified POST)
+# -------------------------------------------------------------
+@router.get("/preview/{puuid}")
+async def preview_player_get(puuid: str):
+    """Alias GET endpoint matching frontend expectation /api/v1/preview/{puuid}"""
+    return await preview_player(puuid=puuid)
+
+@router.post("")
+async def submit_registration_root(request: RegistrationRequest):
+    """Alias POST endpoint matching frontend expectation /api/v1/register"""
+    return await submit_registration(request)

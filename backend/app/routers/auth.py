@@ -149,3 +149,19 @@ async def check_puuid_exists(puuid: str = Body(..., embed=True)):
     except Exception as e:
         logger.error(f"Error checking PUUID {puuid}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to check PUUID: {str(e)}")
+
+# -------------------------------------------------------------
+# Alias GET endpoints for frontend compatibility
+# -------------------------------------------------------------
+@router.get("/login")
+async def discord_login_alias():
+    """Alias for /api/v1/auth/login returning OAuth URL (frontend uses this)"""
+    return await discord_login()
+
+@router.get("/check-discord/{discord_id}")
+async def check_discord_exists_get(discord_id: int):
+    return await check_discord_exists(discord_id=discord_id)
+
+@router.get("/check-puuid/{puuid}")
+async def check_puuid_exists_get(puuid: str):
+    return await check_puuid_exists(puuid=puuid)
