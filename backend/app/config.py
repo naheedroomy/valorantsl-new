@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # CORS Configuration
     cors_origins: str = Field(default='["http://localhost:3000","http://localhost:8080"]')
     
+    # Geo-restriction Configuration
+    geo_restrict_registration: bool = Field(default=True)
+    allowed_countries: str = Field(default="LK,SG")  # ISO 3166-1 alpha-2 codes
+
     # Discord OAuth Configuration
     discord_client_id: str = Field(default="")
     discord_client_secret: str = Field(default="")
@@ -35,6 +39,11 @@ class Settings(BaseSettings):
         env_file = "../.env"  # Use root-level .env file
         case_sensitive = False
         extra = "ignore"  # Ignore extra fields from consolidated .env
+
+    @property
+    def allowed_countries_list(self) -> List[str]:
+        """Parse allowed countries string to list"""
+        return [c.strip().upper() for c in self.allowed_countries.split(",") if c.strip()]
 
     @property
     def cors_origins_list(self) -> List[str]:

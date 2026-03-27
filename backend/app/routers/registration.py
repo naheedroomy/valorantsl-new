@@ -1,6 +1,6 @@
 """User registration router with Riot API integration"""
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from pydantic import BaseModel
 import httpx
 import logging
@@ -9,6 +9,7 @@ from datetime import datetime
 from ..config import settings
 from ..services.database import db_service
 from ..models.user import UserInDB
+from ..dependencies.geo import require_allowed_country
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,7 @@ def get_peak_rank_info(mmr_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@router.post("/preview")
+@router.post("/preview", dependencies=[Depends(require_allowed_country)])
 async def preview_player(puuid: str = Body(..., embed=True)):
     """Get player preview data before registration"""
     try:
@@ -188,7 +189,7 @@ async def preview_player(puuid: str = Body(..., embed=True)):
         raise HTTPException(status_code=500, detail="Failed to fetch player data")
 
 
-@router.post("/submit")
+@router.post("/submit", dependencies=[Depends(require_allowed_country)])
 async def submit_registration(request: RegistrationRequest):
     """Submit final registration to add player to leaderboard"""
     try:
@@ -264,12 +265,12 @@ async def submit_registration(request: RegistrationRequest):
 # -------------------------------------------------------------
 # Alias routes for frontend compatibility (GET + simplified POST)
 # -------------------------------------------------------------
-@router.get("/preview/{puuid}")
+@router.get("/preview/{puuid}", dependencies=[Depends(require_allowed_country)])
 async def preview_player_get(puuid: str):
     """Alias GET endpoint matching frontend expectation /api/v1/preview/{puuid}"""
     return await preview_player(puuid=puuid)
 
-@router.post("")
+@router.post("", dependencies=[Depends(require_allowed_country)])
 async def submit_registration_root(request: RegistrationRequest):
     """Alias POST endpoint matching frontend expectation /api/v1/register"""
     return await submit_registration(request)
